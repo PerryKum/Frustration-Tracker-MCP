@@ -154,7 +154,7 @@
         <input type="radio" name="scope" value="global" checked />
         <div class="option-body">
           <div class="option-title">全局（所有项目）</div>
-          <div class="option-desc">写入 ~/.cursor/mcp.json</div>
+          <div class="option-desc">写入各 IDE 的全局 MCP 配置（路径因系统而异）</div>
         </div>
       </label>
       <label class="option">
@@ -166,7 +166,7 @@
       </label>
       <div id="projectPathField" class="field hidden">
         <div class="field-row">
-          <input type="text" id="projectPath" placeholder="项目根目录，如 C:/Users/你/code/my-app" />
+          <input type="text" id="projectPath" placeholder="项目根目录，如 /Users/你/code/my-app 或 C:/Users/你/code/my-app" />
           <button class="btn-secondary" id="browseProject">浏览</button>
         </div>
       </div>
@@ -237,7 +237,7 @@
       grid.innerHTML = ides
         .map(
           (ide) => `
-        <label class="ide-check">
+        <label class="ide-check" title="${ide.docUrl ?? ide.note ?? ""}">
           <input type="checkbox" name="ide" value="${ide.id}" checked />
           <span>${ide.label}</span>
           ${ide.skillAutoLoad ? '<span class="ide-tag">Skill✓</span>' : ""}
@@ -380,7 +380,10 @@
 
         const ideLines = (data.results ?? [])
           .map((r) => {
-            if (r.ok) return `✓ ${r.label}\n  ${r.mcpPath}${r.note ? `\n  (${r.note})` : ""}`;
+            if (r.ok) {
+              const paths = r.mcpPaths?.length ? r.mcpPaths : [r.mcpPath];
+              return `✓ ${r.label}\n  ${paths.filter(Boolean).join("\n  ")}${r.note ? `\n  (${r.note})` : ""}`;
+            }
             if (r.skipped) return `− ${r.label}: ${r.reason}`;
             return `✗ ${r.label}: ${r.error}`;
           })

@@ -1,0 +1,31 @@
+---
+description: 当用户表现出生气、不耐烦或重复强调时，使用 frustration-tracker MCP 记录并学习
+alwaysApply: true
+---
+
+# 挫败感检测与记录
+
+当用户消息出现以下信号时，**必须**使用 `frustration-tracker` MCP：
+
+- 否定词：不对、错了、不行、别…
+- 重复强调：又、说了几遍、怎么还
+- 强烈情绪：无语、服了、气死、烦
+- 质疑 Agent：你到底、有没有看代码
+
+## 流程
+
+1. 调用 `check_user_frustration`，传入用户最新消息
+2. 若 `is_frustrated` 为 true：
+   - 分析原因，写 `summary`（内部用）和 `suggested_rule`（写入 skill 的具体规则）
+   - 调用 `match_frustration_category` 确定分类
+   - 调用 `record_frustration`，**必须原样传入 match 返回的 `category_id`**，禁止自行改分类
+3. 同一宽泛主题归一个子 skill，子 skill 只列规则，不写案例详情
+4. 若 record/list 返回 conflicts_detected，**必须列出给用户**，调用 resolve_rule_conflict 按用户选择裁决
+5. 打开项目时可调用 check_scope_conflicts 检查全局 vs 项目 skill 冲突
+4. 向用户简短确认已记录，并说明会从这次反馈中学习
+
+## 预防性使用
+
+- 开始复杂或多步骤任务前，可调用 `get_frustration_patterns` 阅读历史规则
+- Skill 为**索引 + 分类子 skill**结构：先读索引 `SKILL.md`，再按需读 `categories/{id}/SKILL.md`
+- 用户偏好和约束以 skill 中记录的规则为准

@@ -12,6 +12,7 @@ import {
   ALL_IDE_IDS,
   IDE_PROFILES,
   resolveMcpPath,
+  resolveAllMcpPaths,
   writeIdeMcpConfig,
   installIdeRule,
 } from "./ide-profiles.mjs";
@@ -105,6 +106,17 @@ export function browseFolder() {
     });
     return result.stdout?.trim() || null;
   }
+
+  if (process.platform === "darwin") {
+    const script = 'POSIX path of (choose folder with prompt "选择目录")';
+    const result = spawnSync("osascript", ["-e", script], {
+      encoding: "utf-8",
+    });
+    if (result.status !== 0) return null;
+    const picked = result.stdout?.trim();
+    return picked ? picked.replace(/\/$/, "") : null;
+  }
+
   return null;
 }
 
@@ -174,9 +186,9 @@ export function installAndConfigure({
     const profile = IDE_PROFILES[ideId];
     if (!profile) continue;
 
-    const configPath = resolveMcpPath(ideId, scope, projectPath);
+    const configPaths = resolveAllMcpPaths(ideId, scope, projectPath);
 
-    if (!configPath) {
+    if (configPaths.length === 0) {
       results.push({
         ide: ideId,
         label: profile.label,
@@ -188,13 +200,15 @@ export function installAndConfigure({
     }
 
     try {
-      writeIdeMcpConfig({
-        ideId,
-        configPath,
-        serverPath,
-        skillDirPosix,
-      });
-      log(`[${profile.label}] → ${configPath}`);
+      for (const configPath of configPaths) {
+        writeIdeMcpConfig({
+          ideId,
+          configPath,
+          serverPath,
+          skillDirPosix,
+        });
+        log(`[${profile.label}] → ${configPath}`);
+      }
 
       const rulePath = installIdeRule({
         ideId,
@@ -208,9 +222,11 @@ export function installAndConfigure({
         ide: ideId,
         label: profile.label,
         ok: true,
-        mcpPath: configPath,
+        mcpPath: configPaths[0],
+        mcpPaths: configPaths,
         skillAutoLoad: profile.skillAutoLoad,
         note: profile.note,
+        docUrl: profile.docUrl,
       });
     } catch (err) {
       results.push({

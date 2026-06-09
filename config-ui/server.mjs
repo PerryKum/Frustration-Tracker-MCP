@@ -68,12 +68,18 @@ const server = createServer(async (req, res) => {
       defaultSkillDir: getDefaultSkillDir(),
       built: isBuilt(),
       current,
-      ides: ALL_IDE_IDS.map((id) => ({
-        id,
-        label: IDE_PROFILES[id].label,
-        skillAutoLoad: IDE_PROFILES[id].skillAutoLoad,
-        note: IDE_PROFILES[id].note ?? null,
-      })),
+      ides: ALL_IDE_IDS.map((id) => {
+        const p = IDE_PROFILES[id];
+        return {
+          id,
+          label: p.label,
+          skillAutoLoad: p.skillAutoLoad,
+          note: p.note ?? null,
+          docUrl: p.docUrl ?? null,
+          globalPathDisplay: p.globalPathDisplay,
+          projectPathDisplay: p.projectPathDisplay,
+        };
+      }),
     });
     return;
   }
@@ -115,6 +121,7 @@ const server = createServer(async (req, res) => {
         results: result.results.map((r) => ({
           ...r,
           mcpPath: r.mcpPath ? toPosixPath(r.mcpPath) : undefined,
+          mcpPaths: r.mcpPaths?.map((p) => toPosixPath(p)),
         })),
         rules: result.rules?.map((r) => ({ ...r, path: toPosixPath(r.path) })),
         gitignore: result.gitignore

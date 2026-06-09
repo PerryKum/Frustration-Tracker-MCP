@@ -4,18 +4,40 @@
 
 ## 支持的 IDE
 
-配置界面可一次勾选多个 IDE，自动写入对应 MCP 配置：
+路径与格式定义见 [`scripts/lib/ide-profiles.mjs`](scripts/lib/ide-profiles.mjs)，安装脚本按当前操作系统写入对应文件。
 
-| IDE | 全局配置 | 项目配置 | Skill 自动加载 | 说明 |
-|-----|---------|---------|---------------|------|
-| **Cursor** | `~/.cursor/mcp.json` | `.cursor/mcp.json` | ✓ | 含 Rule + Skill |
-| **VS Code (Copilot)** | — | `.vscode/mcp.json` | — | `servers` + `type:stdio` |
-| **Claude Desktop** | 系统 Claude 配置目录 | — | — | 仅全局 |
-| **Windsurf** | `~/.codeium/windsurf/mcp_config.json` | — | — | 修改后需重启 |
-| **Trae** | Trae User 目录 | `.trae/mcp.json` | — | 规则写入 `.trae/project_rules.md` |
-| **Claude Code** | `~/.claude.json` | `.mcp.json` | — | 项目级优先 |
+| IDE | 项目配置 | Skill | 文档 |
+|-----|---------|-------|------|
+| **Cursor** | `.cursor/mcp.json` | ✓ 自动加载 | [MCP](https://docs.cursor.com/context/mcp) |
+| **VS Code (Copilot)** | `.vscode/mcp.json` | — | [MCP](https://code.visualstudio.com/docs/copilot/customization/mcp-servers) |
+| **Claude Desktop** | — | — | [MCP](https://support.claude.com/en/articles/10949351-getting-started-with-model-context-protocol-mcp-on-claude-for-desktop) |
+| **Windsurf** | `.windsurf/mcp.json` | — | [MCP](https://docs.windsurf.com/windsurf/cascade/mcp) |
+| **Trae** | `.trae/mcp.json` | — | [MCP](https://www.volcengine.com/docs/86677/2137601) |
+| **Claude Code** | `.mcp.json` | — | [MCP](https://code.claude.com/docs/en/mcp) |
 
-选「项目级」时，不支持项目配置的 IDE 会写入全局配置。
+### 全局配置路径
+
+| IDE | macOS | Windows | Linux |
+|-----|-------|---------|-------|
+| Cursor | `~/.cursor/mcp.json` | `%APPDATA%\Cursor\mcp.json` | `~/.config/cursor/mcp.json` |
+| VS Code | `~/Library/Application Support/Code/User/mcp.json` | `%APPDATA%\Code\User\mcp.json` | `~/.config/Code/User/mcp.json` |
+| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` | `%APPDATA%\Claude\claude_desktop_config.json` | `~/.config/Claude/claude_desktop_config.json` |
+| Windsurf | `~/.windsurf/mcp.json` | `%APPDATA%\Windsurf\mcp.json` | `~/.config/windsurf/mcp.json` |
+| Trae | `~/.trae/mcp.json` | `%USERPROFILE%\.trae\mcp.json` | `~/.trae/mcp.json` |
+| Claude Code | `~/.claude.json` | `%USERPROFILE%\.claude.json` | `~/.claude.json` |
+
+Windsurf 全局安装时会**同时写入**旧版路径 `~/.codeium/windsurf/mcp_config.json` 以兼容旧版本。
+
+### 格式差异
+
+| IDE | JSON 根键 | stdio 需 `type` |
+|-----|----------|----------------|
+| Cursor / Claude / Windsurf / Trae / Claude Code | `mcpServers` | Claude Code 项目级需要 |
+| VS Code | `servers` | 需要 `type: "stdio"` |
+
+Claude Code 的 MCP **只能**写在 `~/.claude.json` 或项目 `.mcp.json`，写入 `~/.claude/settings.json` 会被静默忽略。
+
+选「项目级」时，不支持项目配置的 IDE（Claude Desktop）仍会写入全局配置。
 
 ## 工作原理
 
@@ -44,16 +66,42 @@ Agent 在对话中主动调用 MCP 工具：
 
 ## 安装
 
-**Windows**：双击 `configure.bat`
+### Windows
 
-**macOS / Linux**：
+双击 `configure.bat`
+
+### macOS
 
 ```bash
 chmod +x configure.sh   # 首次需要
 ./configure.sh
 ```
 
-或任意平台：
+浏览器会自动打开配置页。macOS 上「浏览」按钮可用（系统文件夹选择器）。
+
+全局 MCP 写入路径（安装脚本自动解析）：
+
+| IDE | macOS 全局路径 |
+|-----|---------------|
+| Cursor | `~/.cursor/mcp.json` |
+| VS Code | `~/Library/Application Support/Code/User/mcp.json` |
+| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windsurf | `~/.windsurf/mcp.json`（并同步 `~/.codeium/windsurf/mcp_config.json`） |
+| Trae | `~/.trae/mcp.json` |
+| Claude Code | `~/.claude.json` |
+
+未安装 Node.js 时：`brew install node`
+
+### Linux
+
+```bash
+chmod +x configure.sh
+./configure.sh
+```
+
+Linux 需手动输入项目路径（暂无文件夹选择器）。
+
+### 通用
 
 ```bash
 npm run configure
@@ -63,12 +111,29 @@ npm run configure
 
 ## 手动配置
 
-编辑对应 IDE 的 MCP 配置，加入：
+多数 IDE 使用 `mcpServers` 根键：
 
 ```json
 {
   "mcpServers": {
     "frustration-tracker": {
+      "command": "node",
+      "args": ["/path/to/frustration-tracker-mcp/dist/index.js"],
+      "env": {
+        "FRUSTRATION_SKILL_DIR": "/path/to/user-frustration-patterns"
+      }
+    }
+  }
+}
+```
+
+VS Code 使用 `servers` 根键，并需 `"type": "stdio"`：
+
+```json
+{
+  "servers": {
+    "frustration-tracker": {
+      "type": "stdio",
       "command": "node",
       "args": ["/path/to/frustration-tracker-mcp/dist/index.js"],
       "env": {
