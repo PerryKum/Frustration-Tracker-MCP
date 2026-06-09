@@ -251,10 +251,14 @@ ${buildPendingConflictsSection(store)}
 `;
 }
 
-function shortenForDisplay(text: string, maxLen = 48): string {
-  const oneLine = text.replace(/\s+/g, " ").trim();
-  if (oneLine.length <= maxLen) return oneLine;
-  return oneLine.slice(0, maxLen) + "…";
+function formatRecentCase(r: FrustrationRecord): string {
+  const date = r.timestamp.slice(0, 10);
+  const summary = r.summary.trim();
+  const rule = r.suggestedRule?.trim();
+  if (rule) {
+    return `- **${date}**\n  ${summary}\n  → ${rule}`;
+  }
+  return `- **${date}**\n  ${summary}`;
 }
 
 function buildCategorySkillMarkdown(
@@ -265,14 +269,8 @@ function buildCategorySkillMarkdown(
   const rules = aggregateRules(store, records, 12);
   const examples = records
     .slice(-6)
-    .map((r) => {
-      const brief = shortenForDisplay(r.summary, 40);
-      const rule = r.suggestedRule ? shortenForDisplay(r.suggestedRule, 56) : "";
-      return rule
-        ? `- **${r.timestamp.slice(0, 10)}**: ${brief} → ${rule}`
-        : `- **${r.timestamp.slice(0, 10)}**: ${brief}`;
-    })
-    .join("\n");
+    .map(formatRecentCase)
+    .join("\n\n");
 
   const lastUpdated =
     records.length > 0 ? records[records.length - 1].timestamp : category.createdAt;
