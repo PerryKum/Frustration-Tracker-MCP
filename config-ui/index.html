@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frustration Tracker 配置</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d27;
+      --border: #2a2f3d;
+      --text: #e8eaed;
+      --muted: #9aa0ad;
+      --accent: #6c8cff;
+      --accent-hover: #8aa4ff;
+      --success: #4ade80;
+      --error: #f87171;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 20px 48px;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 6px; }
+    .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 28px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 14px;
+      font-weight: 600;
+    }
+    label.option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 6px;
+      border: 1px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    label.option:hover { background: rgba(255,255,255,0.03); }
+    label.option:has(input:checked) {
+      background: rgba(108, 140, 255, 0.1);
+      border-color: rgba(108, 140, 255, 0.35);
+    }
+    label.option.disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    label.option.disabled:hover { background: transparent; }
+    label.option input { margin-top: 3px; accent-color: var(--accent); }
+    .option-body { flex: 1; }
+    .option-title { font-weight: 500; font-size: 0.95rem; }
+    .option-desc { color: var(--muted); font-size: 0.82rem; margin-top: 2px; word-break: break-all; }
+    .field { margin-top: 10px; }
+    .field-row { display: flex; gap: 8px; }
+    input[type="text"] {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    input[type="text"]:focus { border-color: var(--accent); }
+    button {
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 500;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      white-space: nowrap;
+    }
+    .btn-secondary:hover:not(:disabled) { background: #3a4050; }
+    .btn-primary {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      padding: 14px;
+      font-size: 1rem;
+      margin-top: 4px;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .hidden { display: none !important; }
+    .status {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.6;
+    }
+    .status.info { background: rgba(108,140,255,0.12); border: 1px solid rgba(108,140,255,0.3); }
+    .status.ok { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); }
+    .status.err { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); }
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 99px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .badge.ok { background: rgba(74,222,128,0.2); color: var(--success); }
+    .badge.warn { background: rgba(251,191,36,0.2); color: #fbbf24; }
+    .ide-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    @media (max-width: 480px) { .ide-grid { grid-template-columns: 1fr; } }
+    label.ide-check {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--border); font-size: 0.88rem;
+    }
+    label.ide-check:hover { background: rgba(255,255,255,0.03); }
+    label.ide-check input { accent-color: var(--accent); }
+    .ide-tag { font-size: 0.7rem; color: var(--success); margin-left: auto; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Frustration Tracker</h1>
+    <p class="subtitle">配置 Skill 路径，并写入主流 IDE 的 MCP 配置</p>
+
+    <div class="card">
+      <h2>配置范围</h2>
+      <label class="option">
+        <input type="radio" name="scope" value="global" checked />
+        <div class="option-body">
+          <div class="option-title">全局（所有项目）</div>
+          <div class="option-desc">写入 ~/.cursor/mcp.json</div>
+        </div>
+      </label>
+      <label class="option">
+        <input type="radio" name="scope" value="project" />
+        <div class="option-body">
+          <div class="option-title">仅指定项目</div>
+          <div class="option-desc">写入各 IDE 的项目级 MCP 配置（不支持项目级的会写全局）</div>
+        </div>
+      </label>
+      <div id="projectPathField" class="field hidden">
+        <div class="field-row">
+          <input type="text" id="projectPath" placeholder="项目根目录，如 C:/Users/你/code/my-app" />
+          <button class="btn-secondary" id="browseProject">浏览</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>目标 IDE</h2>
+      <div class="ide-grid" id="ideGrid"></div>
+      <p class="option-desc" style="margin-top:10px">仅 Cursor 支持 Skill 自动加载；其他 IDE 通过 MCP 工具读取规则。</p>
+    </div>
+
+    <div class="card">
+      <h2>Skill 输出路径</h2>
+      <label class="option">
+        <input type="radio" name="skillPreset" value="default" checked />
+        <div class="option-body">
+          <div class="option-title">全局默认</div>
+          <div class="option-desc" id="defaultSkillPath">~/.cursor/skills/user-frustration-patterns</div>
+        </div>
+      </label>
+      <label class="option" id="projectSkillOption">
+        <input type="radio" name="skillPreset" value="project" id="projectSkillRadio" />
+        <div class="option-body">
+          <div class="option-title">当前项目内</div>
+          <div class="option-desc" id="projectSkillDesc">项目/.cursor/skills/user-frustration-patterns（需先选「仅指定项目」）</div>
+        </div>
+      </label>
+      <label class="option">
+        <input type="radio" name="skillPreset" value="custom" />
+        <div class="option-body">
+          <div class="option-title">自定义路径</div>
+          <div class="option-desc">任意目录，会生成 SKILL.md 和 history.json</div>
+        </div>
+      </label>
+      <div id="customSkillField" class="field hidden">
+        <div class="field-row">
+          <input type="text" id="customSkillDir" placeholder="如 C:/Users/你/Documents/frustration-skill" />
+          <button class="btn-secondary" id="browseSkill">浏览</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>状态 <span id="buildBadge" class="badge warn">检测中</span></h2>
+      <div class="option-desc" id="statusInfo">正在加载...</div>
+    </div>
+
+    <button class="btn-primary" id="installBtn">一键安装并保存配置</button>
+    <div id="result" class="status hidden"></div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function getScope() {
+      return document.querySelector('input[name="scope"]:checked').value;
+    }
+    function getSkillPreset() {
+      return document.querySelector('input[name="skillPreset"]:checked').value;
+    }
+
+    function getSelectedIdes() {
+      return [...document.querySelectorAll('input[name="ide"]:checked')].map((el) => el.value);
+    }
+
+    function renderIdeGrid(ides) {
+      const grid = $("ideGrid");
+      grid.innerHTML = ides
+        .map(
+          (ide) => `
+        <label class="ide-check">
+          <input type="checkbox" name="ide" value="${ide.id}" checked />
+          <span>${ide.label}</span>
+          ${ide.skillAutoLoad ? '<span class="ide-tag">Skill✓</span>' : ""}
+        </label>`
+        )
+        .join("");
+      grid.querySelectorAll('input[name="ide"]').forEach((el) => {
+        el.addEventListener("change", updateVisibility);
+      });
+    }
+
+    function hasProjectPath() {
+      return $("projectPath").value.trim().length > 0;
+    }
+
+    function updateVisibility() {
+      const isProjectScope = getScope() === "project";
+      const projectPathOk = hasProjectPath();
+      const canUseProjectSkill = isProjectScope && projectPathOk;
+
+      $("projectPathField").classList.toggle("hidden", !isProjectScope);
+      $("customSkillField").classList.toggle("hidden", getSkillPreset() !== "custom");
+
+      const projectSkillOption = $("projectSkillOption");
+      const projectSkillRadio = $("projectSkillRadio");
+      projectSkillOption.classList.toggle("disabled", !canUseProjectSkill);
+      projectSkillRadio.disabled = !canUseProjectSkill;
+
+      $("projectSkillDesc").textContent = !isProjectScope
+        ? "需先选「仅指定项目」"
+        : !projectPathOk
+          ? "请先填写或浏览选择项目根目录"
+          : "项目/.cursor/skills/user-frustration-patterns";
+
+      if (!canUseProjectSkill && getSkillPreset() === "project") {
+        document.querySelector('input[name="skillPreset"][value="default"]').checked = true;
+        $("customSkillField").classList.add("hidden");
+      }
+
+      const installBlocked =
+        getSelectedIdes().length === 0 ||
+        (isProjectScope && !projectPathOk) ||
+        (getSkillPreset() === "project" && !canUseProjectSkill) ||
+        (getSkillPreset() === "custom" && !$("customSkillDir").value.trim());
+
+      $("installBtn").disabled = installBlocked;
+    }
+
+    document.querySelectorAll('input[name="scope"], input[name="skillPreset"]').forEach((el) => {
+      el.addEventListener("change", updateVisibility);
+    });
+    $("projectPath").addEventListener("input", updateVisibility);
+    $("customSkillDir").addEventListener("input", updateVisibility);
+
+    function showResult(text, type) {
+      const el = $("result");
+      el.className = `status ${type}`;
+      el.textContent = text;
+      el.classList.remove("hidden");
+    }
+
+    async function loadDefaults() {
+      const res = await fetch("/api/defaults");
+      const data = await res.json();
+      $("defaultSkillPath").textContent = data.defaultSkillDir;
+      renderIdeGrid(data.ides ?? []);
+      $("statusInfo").textContent =
+        `MCP 源码: ${data.projectRoot}\n` +
+        (data.current.configured
+          ? `已配置 Skill 路径: ${data.current.skillDir}`
+          : "尚未配置 frustration-tracker");
+
+      const badge = $("buildBadge");
+      if (data.built) {
+        badge.textContent = "已编译";
+        badge.className = "badge ok";
+      } else {
+        badge.textContent = "需编译";
+        badge.className = "badge warn";
+      }
+    }
+
+    async function browse(forProject) {
+      const body = {
+        forProject,
+        projectPath: $("projectPath").value.trim(),
+      };
+      const res = await fetch("/api/browse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.cancelled) return;
+      if (forProject) {
+        $("projectPath").value = data.path;
+        updateVisibility();
+      } else {
+        $("customSkillDir").value = data.path;
+        document.querySelector('input[name="skillPreset"][value="custom"]').checked = true;
+        updateVisibility();
+      }
+    }
+
+    $("browseProject").addEventListener("click", () => browse(true));
+    $("browseSkill").addEventListener("click", () => browse(false));
+
+    $("installBtn").addEventListener("click", async () => {
+      if (getScope() === "project" && !hasProjectPath()) {
+        showResult("请先选择项目根目录", "err");
+        return;
+      }
+      if (getSkillPreset() === "project" && !hasProjectPath()) {
+        showResult("「当前项目内」需要先填写项目目录", "err");
+        return;
+      }
+      if (getSelectedIdes().length === 0) {
+        showResult("请至少选择一个 IDE", "err");
+        return;
+      }
+
+      const btn = $("installBtn");
+      btn.disabled = true;
+      showResult("正在安装，请稍候...\n（首次会 npm install + 编译，可能需要一分钟）", "info");
+
+      try {
+        const res = await fetch("/api/install", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scope: getScope(),
+            projectPath: $("projectPath").value.trim(),
+            skillPreset: getSkillPreset(),
+            customSkillDir: $("customSkillDir").value.trim(),
+            ides: getSelectedIdes(),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "安装失败");
+
+        const ideLines = (data.results ?? [])
+          .map((r) => {
+            if (r.ok) return `✓ ${r.label}\n  ${r.mcpPath}${r.note ? `\n  (${r.note})` : ""}`;
+            if (r.skipped) return `− ${r.label}: ${r.reason}`;
+            return `✗ ${r.label}: ${r.error}`;
+          })
+          .join("\n");
+
+        const ruleLines = (data.rules ?? []).map((r) => `  ${r.path}`).join("\n");
+
+        showResult(
+          "安装完成！\n\n" +
+          (data.logs?.length ? data.logs.join("\n") + "\n\n" : "") +
+          `Skill 输出: ${data.skillDir}\n\n` +
+          `IDE 配置:\n${ideLines}\n` +
+          (ruleLines ? `\nRule 文件:\n${ruleLines}\n` : "") +
+          (data.gitignore?.added?.length
+            ? `\n.gitignore: ${data.gitignore.path}\n  新增: ${data.gitignore.added.join(", ")}\n`
+            : "") +
+          `\n下一步: 重启对应 IDE / Reload Window，确认 frustration-tracker 已连接`,
+          "ok"
+        );
+        await loadDefaults();
+      } catch (e) {
+        showResult("失败: " + e.message, "err");
+      } finally {
+        updateVisibility();
+      }
+    });
+
+    updateVisibility();
+    loadDefaults().catch((e) => showResult("加载失败: " + e.message, "err"));
+  </script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+configure.bat text eol=crlf
+configure.sh text eol=lf
