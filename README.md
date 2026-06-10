@@ -109,6 +109,8 @@ npm run configure
 
 配置页面中可勾选 IDE、选择全局/项目范围、指定 Skill 输出路径，一键完成编译与写入。项目级配置会自动更新 `.gitignore`。
 
+**注意**：选「全局」时，Cursor 的 `mcp.json` 和 `rules/frustration-tracker.mdc` 写在 **`~/.cursor/`**（用户主目录），不会出现在你业务项目的 `.cursor/` 里。若要在项目内配置，请选「仅指定项目」并填写项目根目录（支持 `~/Projects/xxx` 路径）。
+
 ## 手动配置
 
 多数 IDE 使用 `mcpServers` 根键：

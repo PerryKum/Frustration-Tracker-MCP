@@ -15,7 +15,7 @@ import {
   readCurrentConfig,
   toPosixPath,
   ALL_IDE_IDS,
-  IDE_PROFILES,
+  expandUserPath,
 } from "../scripts/lib/install.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -49,7 +49,7 @@ function resolveSkillDir({ skillPreset, customSkillDir, projectPath }) {
     return getProjectSkillDir(projectPath);
   }
   if (!customSkillDir?.trim()) throw new Error("请填写自定义输出路径");
-  return customSkillDir.trim();
+  return expandUserPath(customSkillDir.trim());
 }
 
 const server = createServer(async (req, res) => {
@@ -118,6 +118,8 @@ const server = createServer(async (req, res) => {
         ok: true,
         logs,
         skillDir: toPosixPath(result.skillDir),
+        scope: result.scope,
+        projectPath: result.projectPath ? toPosixPath(result.projectPath) : null,
         results: result.results.map((r) => ({
           ...r,
           mcpPath: r.mcpPath ? toPosixPath(r.mcpPath) : undefined,

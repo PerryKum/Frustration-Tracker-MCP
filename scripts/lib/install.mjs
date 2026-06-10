@@ -21,7 +21,30 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export const projectRoot = join(__dirname, "..", "..");
 const serverPath = join(projectRoot, "dist", "index.js").replace(/\\/g, "/");
 export const SKILL_FOLDER = "user-frustration-patterns";
-export const ruleSource = join(projectRoot, ".cursor", "rules", "frustration-tracker.mdc");
+
+const RULE_SOURCE_CANDIDATES = [
+  join(projectRoot, "templates", "frustration-tracker.mdc"),
+  join(projectRoot, ".cursor", "rules", "frustration-tracker.mdc"),
+];
+
+export function expandUserPath(input) {
+  if (!input?.trim()) return input;
+  let p = input.trim();
+  if (p === "~") return homedir();
+  if (p.startsWith("~/") || p.startsWith("~\\")) {
+    p = join(homedir(), p.slice(2));
+  }
+  return resolve(p);
+}
+
+export function resolveRuleSource() {
+  for (const candidate of RULE_SOURCE_CANDIDATES) {
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error(
+    `未找到规则模板 frustration-tracker.mdc，请确认在 MCP 项目根目录运行安装（${projectRoot}）`
+  );
+}
 
 export function toPosixPath(p) {
   return p.replace(/\\/g, "/");
@@ -32,7 +55,7 @@ export function getDefaultSkillDir() {
 }
 
 export function getProjectSkillDir(projectPath) {
-  return join(projectPath, ".cursor", "skills", SKILL_FOLDER);
+  return join(expandUserPath(projectPath), ".cursor", "skills", SKILL_FOLDER);
 }
 
 export function isBuilt() {
@@ -168,7 +191,11 @@ export function installAndConfigure({
     throw new Error("请至少选择一个 IDE");
   }
 
-  if (scope === "project" && !projectPath) {
+  const resolvedProjectPath = projectPath ? expandUserPath(projectPath) : undefined;
+  const resolvedSkillDir = expandUserPath(skillDir);
+  const ruleSource = resolveRuleSource();
+
+  if (scope === "project" && !resolvedProjectPath) {
     throw new Error("项目级配置需要填写项目路径");
   }
 
@@ -176,9 +203,9 @@ export function installAndConfigure({
     runBuild(log);
   }
 
-  mkdirSync(skillDir, { recursive: true });
+  mkdirSync(resolvedSkillDir, { recursive: true });
 
-  const skillDirPosix = toPosixPath(skillDir);
+  const skillDirPosix = toPosixPath(resolvedSkillDir);
   const results = [];
   const rules = [];
 
@@ -186,7 +213,7 @@ export function installAndConfigure({
     const profile = IDE_PROFILES[ideId];
     if (!profile) continue;
 
-    const configPaths = resolveAllMcpPaths(ideId, scope, projectPath);
+    const configPaths = resolveAllMcpPaths(ideId, scope, resolvedProjectPath);
 
     if (configPaths.length === 0) {
       results.push({
@@ -207,16 +234,29 @@ export function installAndConfigure({
           serverPath,
           skillDirPosix,
         });
+        if (!existsSync(configPath)) {
+          throw new Error(`MCP 配置写入失败: ${configPath}`);
+        }
         log(`[${profile.label}] → ${configPath}`);
       }
 
       const rulePath = installIdeRule({
         ideId,
         scope,
-        projectPath,
+        projectPath: resolvedProjectPath,
         ruleSourcePath: ruleSource,
       });
-      if (rulePath) rules.push({ ide: ideId, path: rulePath });
+      if (profile.ruleCopy === "file" && !rulePath) {
+        throw new Error(
+          `Cursor Rule 安装失败。源: ${ruleSource}，目标 scope: ${scope}`
+        );
+      }
+      if (rulePath) {
+        if (!existsSync(rulePath)) {
+          throw new Error(`Rule 文件写入失败: ${rulePath}`);
+        }
+        rules.push({ ide: ideId, path: rulePath });
+      }
 
       results.push({
         ide: ideId,
@@ -239,8 +279,8 @@ export function installAndConfigure({
   }
 
   let gitignore = null;
-  if (scope === "project" && projectPath) {
-    gitignore = updateProjectGitignore(projectPath, skillDir, ides);
+  if (scope === "project" && resolvedProjectPath) {
+    gitignore = updateProjectGitignore(resolvedProjectPath, resolvedSkillDir, ides);
     if (gitignore.added.length > 0) {
       log(`已更新 .gitignore: ${gitignore.added.join(", ")}`);
     }
@@ -252,7 +292,9 @@ export function installAndConfigure({
   }
 
   return {
-    skillDir,
+    skillDir: resolvedSkillDir,
+    scope,
+    projectPath: resolvedProjectPath ?? null,
     results,
     rules,
     gitignore,

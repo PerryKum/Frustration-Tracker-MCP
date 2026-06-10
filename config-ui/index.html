@@ -154,14 +154,14 @@
         <input type="radio" name="scope" value="global" checked />
         <div class="option-body">
           <div class="option-title">全局（所有项目）</div>
-          <div class="option-desc">写入各 IDE 的全局 MCP 配置（路径因系统而异）</div>
+          <div class="option-desc" id="globalScopeDesc">MCP / Rule 写入 ~/.cursor/（用户主目录，非当前仓库）</div>
         </div>
       </label>
       <label class="option">
         <input type="radio" name="scope" value="project" />
         <div class="option-body">
           <div class="option-title">仅指定项目</div>
-          <div class="option-desc">写入各 IDE 的项目级 MCP 配置（不支持项目级的会写全局）</div>
+          <div class="option-desc">写入目标项目内的 .cursor/mcp.json 与 .cursor/rules/</div>
         </div>
       </label>
       <div id="projectPathField" class="field hidden">
@@ -394,8 +394,13 @@
         showResult(
           "安装完成！\n\n" +
           (data.logs?.length ? data.logs.join("\n") + "\n\n" : "") +
-          `Skill 输出: ${data.skillDir}\n\n` +
-          `IDE 配置:\n${ideLines}\n` +
+          `配置范围: ${data.scope === "project" ? "项目级" : "全局"}\n` +
+          (data.projectPath ? `项目路径: ${data.projectPath}\n` : "") +
+          `Skill 输出: ${data.skillDir}\n` +
+          (data.scope === "global"
+            ? "\n提示: 全局模式下 Cursor 的 mcp.json 与 rules 在 ~/.cursor/，不在项目 .cursor/ 里。\n"
+            : "") +
+          `\nIDE 配置:\n${ideLines}\n` +
           (ruleLines ? `\nRule 文件:\n${ruleLines}\n` : "") +
           (data.gitignore?.added?.length
             ? `\n.gitignore: ${data.gitignore.path}\n  新增: ${data.gitignore.added.join(", ")}\n`
