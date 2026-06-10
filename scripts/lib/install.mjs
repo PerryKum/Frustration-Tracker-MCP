@@ -46,6 +46,99 @@ export function resolveRuleSource() {
   );
 }
 
+/** 只保留用户勾选的 IDE，去重；非法 id 单独报错，不静默跳过 */
+export function normalizeSelectedIdes(ides) {
+  if (Array.isArray(ides)) {
+    return [...new Set(ides.map((id) => String(id).trim()).filter(Boolean))];
+  }
+  if (typeof ides === "string" && ides.trim()) {
+    return [ides.trim()];
+  }
+  return [];
+}
+
+function installSingleIde({
+  ideId,
+  scope,
+  resolvedProjectPath,
+  skillDirPosix,
+  onLog,
+}) {
+  const profile = IDE_PROFILES[ideId];
+  if (!profile) {
+    return {
+      ide: ideId,
+      label: ideId,
+      ok: false,
+      error: `未知 IDE: ${ideId}`,
+    };
+  }
+
+  const log = onLog ?? (() => {});
+  const configPaths = resolveAllMcpPaths(ideId, scope, resolvedProjectPath);
+
+  if (configPaths.length === 0) {
+    return {
+      ide: ideId,
+      label: profile.label,
+      ok: false,
+      skipped: true,
+      reason: scope === "project" ? "不支持项目级" : "不支持全局",
+    };
+  }
+
+  try {
+    for (const configPath of configPaths) {
+      writeIdeMcpConfig({
+        ideId,
+        configPath,
+        serverPath,
+        skillDirPosix,
+      });
+      if (!existsSync(configPath)) {
+        throw new Error(`MCP 配置写入失败: ${configPath}`);
+      }
+      log(`[${profile.label}] → ${configPath}`);
+    }
+
+    let rulePath = null;
+    if (profile.ruleCopy !== "none") {
+      const ruleSource = resolveRuleSource();
+      rulePath = installIdeRule({
+        ideId,
+        scope,
+        projectPath: resolvedProjectPath,
+        ruleSourcePath: ruleSource,
+      });
+      if (profile.ruleCopy === "file" && !rulePath) {
+        throw new Error(`Rule 安装失败（${profile.label}）`);
+      }
+      if (rulePath && !existsSync(rulePath)) {
+        throw new Error(`Rule 文件写入失败: ${rulePath}`);
+      }
+    }
+
+    return {
+      ide: ideId,
+      label: profile.label,
+      ok: true,
+      mcpPath: configPaths[0],
+      mcpPaths: configPaths,
+      rulePath: rulePath ?? undefined,
+      skillAutoLoad: profile.skillAutoLoad,
+      note: profile.note,
+      docUrl: profile.docUrl,
+    };
+  } catch (err) {
+    return {
+      ide: ideId,
+      label: profile.label,
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 export function toPosixPath(p) {
   return p.replace(/\\/g, "/");
 }
@@ -181,19 +274,19 @@ export function installAndConfigure({
   scope,
   projectPath,
   skillDir,
-  ides = ALL_IDE_IDS,
+  ides,
   skipBuild = false,
   onLog,
 }) {
   const log = onLog ?? (() => {});
 
-  if (!ides.length) {
+  const selectedIdes = normalizeSelectedIdes(ides);
+  if (!selectedIdes.length) {
     throw new Error("请至少选择一个 IDE");
   }
 
   const resolvedProjectPath = projectPath ? expandUserPath(projectPath) : undefined;
   const resolvedSkillDir = expandUserPath(skillDir);
-  const ruleSource = resolveRuleSource();
 
   if (scope === "project" && !resolvedProjectPath) {
     throw new Error("项目级配置需要填写项目路径");
@@ -209,92 +302,46 @@ export function installAndConfigure({
   const results = [];
   const rules = [];
 
-  for (const ideId of ides) {
-    const profile = IDE_PROFILES[ideId];
-    if (!profile) continue;
-
-    const configPaths = resolveAllMcpPaths(ideId, scope, resolvedProjectPath);
-
-    if (configPaths.length === 0) {
-      results.push({
-        ide: ideId,
-        label: profile.label,
-        ok: false,
-        skipped: true,
-        reason: scope === "project" ? "不支持项目级" : "不支持全局",
-      });
-      continue;
-    }
-
-    try {
-      for (const configPath of configPaths) {
-        writeIdeMcpConfig({
-          ideId,
-          configPath,
-          serverPath,
-          skillDirPosix,
-        });
-        if (!existsSync(configPath)) {
-          throw new Error(`MCP 配置写入失败: ${configPath}`);
-        }
-        log(`[${profile.label}] → ${configPath}`);
-      }
-
-      const rulePath = installIdeRule({
-        ideId,
-        scope,
-        projectPath: resolvedProjectPath,
-        ruleSourcePath: ruleSource,
-      });
-      if (profile.ruleCopy === "file" && !rulePath) {
-        throw new Error(
-          `Cursor Rule 安装失败。源: ${ruleSource}，目标 scope: ${scope}`
-        );
-      }
-      if (rulePath) {
-        if (!existsSync(rulePath)) {
-          throw new Error(`Rule 文件写入失败: ${rulePath}`);
-        }
-        rules.push({ ide: ideId, path: rulePath });
-      }
-
-      results.push({
-        ide: ideId,
-        label: profile.label,
-        ok: true,
-        mcpPath: configPaths[0],
-        mcpPaths: configPaths,
-        skillAutoLoad: profile.skillAutoLoad,
-        note: profile.note,
-        docUrl: profile.docUrl,
-      });
-    } catch (err) {
-      results.push({
-        ide: ideId,
-        label: profile.label,
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
-      });
+  for (const ideId of selectedIdes) {
+    const result = installSingleIde({
+      ideId,
+      scope,
+      resolvedProjectPath,
+      skillDirPosix,
+      onLog: log,
+    });
+    results.push(result);
+    if (result.ok && result.rulePath) {
+      rules.push({ ide: ideId, path: result.rulePath });
     }
   }
 
+  const succeeded = results.filter((r) => r.ok);
+  const failed = results.filter((r) => !r.ok);
+
+  // 仅当全部失败时抛错；部分成功照常返回，各 IDE 结果在 results 里各自独立
+  if (succeeded.length === 0) {
+    const detail = failed
+      .map((r) => `[${r.label}] ${r.error ?? r.reason ?? "失败"}`)
+      .join("\n");
+    throw new Error(detail);
+  }
+
+  const succeededIdes = succeeded.map((r) => r.ide);
   let gitignore = null;
   if (scope === "project" && resolvedProjectPath) {
-    gitignore = updateProjectGitignore(resolvedProjectPath, resolvedSkillDir, ides);
+    gitignore = updateProjectGitignore(resolvedProjectPath, resolvedSkillDir, succeededIdes);
     if (gitignore.added.length > 0) {
       log(`已更新 .gitignore: ${gitignore.added.join(", ")}`);
     }
-  }
-
-  const okCount = results.filter((r) => r.ok).length;
-  if (okCount === 0) {
-    throw new Error("所有 IDE 配置均失败，请检查所选 IDE 是否支持当前配置范围");
   }
 
   return {
     skillDir: resolvedSkillDir,
     scope,
     projectPath: resolvedProjectPath ?? null,
+    selectedIdes,
+    allOk: failed.length === 0,
     results,
     rules,
     gitignore,

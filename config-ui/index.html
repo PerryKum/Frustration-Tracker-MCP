@@ -175,7 +175,7 @@
     <div class="card">
       <h2>目标 IDE</h2>
       <div class="ide-grid" id="ideGrid"></div>
-      <p class="option-desc" style="margin-top:10px">仅 Cursor 支持 Skill 自动加载；其他 IDE 通过 MCP 工具读取规则。</p>
+      <p class="option-desc" style="margin-top:10px">各 IDE 互不影响，只写入所勾选 IDE 的配置文件。</p>
     </div>
 
     <div class="card">
@@ -382,17 +382,26 @@
           .map((r) => {
             if (r.ok) {
               const paths = r.mcpPaths?.length ? r.mcpPaths : [r.mcpPath];
-              return `✓ ${r.label}\n  ${paths.filter(Boolean).join("\n  ")}${r.note ? `\n  (${r.note})` : ""}`;
+              return (
+                `✓ ${r.label}\n` +
+                paths.filter(Boolean).map((p) => `  MCP: ${p}`).join("\n") +
+                (r.rulePath ? `\n  Rule: ${r.rulePath}` : "") +
+                (r.note ? `\n  (${r.note})` : "")
+              );
             }
             if (r.skipped) return `− ${r.label}: ${r.reason}`;
             return `✗ ${r.label}: ${r.error}`;
           })
-          .join("\n");
+          .join("\n\n");
 
-        const ruleLines = (data.rules ?? []).map((r) => `  ${r.path}`).join("\n");
+        const okCount = (data.results ?? []).filter((r) => r.ok).length;
+        const total = (data.results ?? []).length;
+        const title = data.partial
+          ? `部分完成（${okCount}/${total} 个 IDE 成功）\n\n`
+          : "全部完成！\n\n";
 
         showResult(
-          "安装完成！\n\n" +
+          title +
           (data.logs?.length ? data.logs.join("\n") + "\n\n" : "") +
           `配置范围: ${data.scope === "project" ? "项目级" : "全局"}\n` +
           (data.projectPath ? `项目路径: ${data.projectPath}\n` : "") +
@@ -400,13 +409,12 @@
           (data.scope === "global"
             ? "\n提示: 全局模式下 Cursor 的 mcp.json 与 rules 在 ~/.cursor/，不在项目 .cursor/ 里。\n"
             : "") +
-          `\nIDE 配置:\n${ideLines}\n` +
-          (ruleLines ? `\nRule 文件:\n${ruleLines}\n` : "") +
+          `\n各 IDE（互不影响）:\n${ideLines}\n` +
           (data.gitignore?.added?.length
             ? `\n.gitignore: ${data.gitignore.path}\n  新增: ${data.gitignore.added.join(", ")}\n`
             : "") +
-          `\n下一步: 重启对应 IDE / Reload Window，确认 frustration-tracker 已连接`,
-          "ok"
+          `\n下一步: 重启已成功的 IDE / Reload Window`,
+          data.partial ? "info" : "ok"
         );
         await loadDefaults();
       } catch (e) {

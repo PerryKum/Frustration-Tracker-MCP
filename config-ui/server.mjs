@@ -17,6 +17,7 @@ import {
   ALL_IDE_IDS,
   IDE_PROFILES,
   expandUserPath,
+  normalizeSelectedIdes,
 } from "../scripts/lib/install.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -105,7 +106,11 @@ const server = createServer(async (req, res) => {
       const body = await readBody(req);
       const logs = [];
       const skillDir = resolveSkillDir(body);
-      const ides = Array.isArray(body.ides) && body.ides.length ? body.ides : ALL_IDE_IDS;
+      const ides = normalizeSelectedIdes(body.ides);
+      if (!ides.length) {
+        sendJson(res, 400, { error: "请至少选择一个 IDE" });
+        return;
+      }
       const result = installAndConfigure({
         scope: body.scope ?? "global",
         projectPath: body.projectPath?.trim(),
@@ -116,7 +121,8 @@ const server = createServer(async (req, res) => {
       });
 
       sendJson(res, 200, {
-        ok: true,
+        ok: result.allOk,
+        partial: !result.allOk,
         logs,
         skillDir: toPosixPath(result.skillDir),
         scope: result.scope,
@@ -125,6 +131,7 @@ const server = createServer(async (req, res) => {
           ...r,
           mcpPath: r.mcpPath ? toPosixPath(r.mcpPath) : undefined,
           mcpPaths: r.mcpPaths?.map((p) => toPosixPath(p)),
+          rulePath: r.rulePath ? toPosixPath(r.rulePath) : undefined,
         })),
         rules: result.rules?.map((r) => ({ ...r, path: toPosixPath(r.path) })),
         gitignore: result.gitignore
