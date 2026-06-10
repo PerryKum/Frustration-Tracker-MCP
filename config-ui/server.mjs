@@ -15,6 +15,7 @@ import {
   readCurrentConfig,
   toPosixPath,
   ALL_IDE_IDS,
+  IDE_PROFILES,
   expandUserPath,
 } from "../scripts/lib/install.mjs";
 
